@@ -1,1 +1,1 @@
-# glebokie_uczenie_projekt2
+# System rozproszony
