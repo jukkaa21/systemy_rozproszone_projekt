@@ -1,0 +1,1 @@
+# glebokie_uczenie_projekt2
