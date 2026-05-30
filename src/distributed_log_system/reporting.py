@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import plotly.graph_objects as go
@@ -9,6 +10,8 @@ import plotly.io as pio
 
 
 PLOT_CONFIG = {"responsive": True, "displaylogo": False}
+MAX_TIME_SERIES_POINTS = 2000
+MAX_VISIBLE_ANOMALY_ROWS = 25
 
 
 def export_results(
@@ -86,6 +89,7 @@ def _figure_html(figure: go.Figure, include_plotlyjs: bool = False) -> str:
 def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
     aggregations = summary["aggregations"]
     metrics = summary["metrics"]
+    anomaly_detection = summary.get("anomaly_detection", {})
 
     top_ip_figure = _build_horizontal_bar(
         items=aggregations["top_ips"],
@@ -124,11 +128,17 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         legend={"orientation": "h", "x": 0.5, "xanchor": "center", "y": -0.08},
     )
 
+    trend_indexes = _sample_indexes(
+        total_points=len(aggregations["hourly_trends"]),
+        max_points=MAX_TIME_SERIES_POINTS,
+    )
+    trend_points = _select_by_indexes(aggregations["hourly_trends"], trend_indexes)
     trend_figure = go.Figure()
+    trend_timestamps = [point["hour"] for point in trend_points]
     trend_figure.add_trace(
         go.Scatter(
-            x=[point["hour"] for point in aggregations["hourly_trends"]],
-            y=[point["requests"] for point in aggregations["hourly_trends"]],
+            x=trend_timestamps,
+            y=[point["requests"] for point in trend_points],
             mode="lines+markers",
             name="Wszystkie",
             line={"color": "#2ca02c", "shape": "hv"},
@@ -136,14 +146,18 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         )
     )
     for family, color in (("2xx", "#1f77b4"), ("3xx", "#17becf"), ("4xx", "#ff7f0e"), ("5xx", "#d62728")):
-        family_points = aggregations["status_family_trends"][family]
+        family_points = _select_by_indexes(
+            aggregations["status_family_trends"][family],
+            trend_indexes,
+        )
         trend_figure.add_trace(
             go.Scatter(
                 x=[point["hour"] for point in family_points],
                 y=[point["requests"] for point in family_points],
-                mode="lines",
+                mode="lines+markers",
                 name=family,
                 line={"color": color, "shape": "hv"},
+                marker={"size": 6},
                 visible=True,
             )
         )
@@ -187,6 +201,7 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         ],
     )
     trend_figure.update_yaxes(tickformat=",d")
+    _expand_single_timestamp_axis(trend_figure, trend_timestamps)
 
     benchmark_figure = None
     if benchmark:
@@ -221,24 +236,98 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
             range=[0, benchmark_y_max * 1.25 if benchmark_y_max else 1],
         )
 
+    anomaly_series = _sample_plot_points(
+        points=anomaly_detection.get("series", []),
+        max_points=MAX_TIME_SERIES_POINTS,
+        keep_key="is_anomaly",
+    )
+    anomaly_timestamps = [point["timestamp"] for point in anomaly_series]
+    anomaly_figure = go.Figure()
+    if anomaly_series:
+        anomaly_figure.add_trace(
+            go.Scatter(
+                x=anomaly_timestamps,
+                y=[point["error_count"] for point in anomaly_series],
+                mode="lines+markers",
+                name="5xx/min",
+                line={"color": "#d62728", "shape": "hv"},
+                marker={"size": 6},
+            )
+        )
+        anomaly_figure.add_trace(
+            go.Scatter(
+                x=anomaly_timestamps,
+                y=[point["savgol_baseline"] for point in anomaly_series],
+                mode="lines+markers",
+                name="Baseline Savitzky-Golay",
+                line={"color": "#1f77b4", "width": 2},
+                marker={"size": 6},
+            )
+        )
+        anomaly_figure.add_trace(
+            go.Scatter(
+                x=anomaly_timestamps,
+                y=[point["threshold"] for point in anomaly_series],
+                mode="lines+markers",
+                name="Prog alarmowy",
+                line={"color": "#ff7f0e", "dash": "dash"},
+                marker={"size": 6},
+            )
+        )
+        anomaly_points = [point for point in anomaly_series if point["is_anomaly"]]
+        if anomaly_points:
+            anomaly_figure.add_trace(
+                go.Scatter(
+                    x=[point["timestamp"] for point in anomaly_points],
+                    y=[point["error_count"] for point in anomaly_points],
+                    mode="markers",
+                    name="Anomalie",
+                    marker={"color": "#7f1d1d", "size": 10, "symbol": "x"},
+                )
+            )
+    anomaly_figure.update_layout(
+        title="Detekcja 5xx filtrem Savitzky-Golay",
+        xaxis_title="Czas (UTC)",
+        yaxis_title="Liczba bledow 5xx",
+        height=430,
+        margin={"l": 72, "r": 32, "t": 82, "b": 72},
+        legend={"orientation": "h", "x": 0.0, "xanchor": "left", "y": 1.03, "yanchor": "bottom"},
+    )
+    anomaly_figure.update_yaxes(tickformat=",d", rangemode="tozero")
+    _expand_single_timestamp_axis(anomaly_figure, anomaly_timestamps)
+
+    anomalies = summary["anomalies"]
     anomaly_rows = "".join(
         """
         <tr>
             <td>{timestamp}</td>
             <td>{error_count}</td>
-            <td>{baseline_mean}</td>
-            <td>{baseline_stddev}</td>
+            <td>{savgol_baseline}</td>
+            <td>{residual}</td>
+            <td>{residual_score}</td>
             <td>{threshold}</td>
         </tr>
         """.format(**anomaly)
-        for anomaly in summary["anomalies"]
+        for anomaly in anomalies
     )
     if not anomaly_rows:
         anomaly_rows = """
         <tr>
-            <td colspan="5">Brak wykrytych anomalii dla aktualnych parametrow.</td>
+            <td colspan="6">Brak wykrytych anomalii dla aktualnych parametrow.</td>
         </tr>
         """
+    anomaly_table_collapsed = len(anomalies) > MAX_VISIBLE_ANOMALY_ROWS
+    anomaly_table_note = ""
+    anomaly_table_button = ""
+    if anomaly_table_collapsed:
+        anomaly_table_note = (
+            f"<p class=\"table-note\">Pokazano pierwsze {MAX_VISIBLE_ANOMALY_ROWS} "
+            f"z {len(anomalies)} anomalii. Pelna lista jest w pliku anomalies.csv.</p>"
+        )
+        anomaly_table_button = (
+            f"<button class=\"table-toggle\" type=\"button\" data-collapsed=\"true\" "
+            f"data-visible-rows=\"{MAX_VISIBLE_ANOMALY_ROWS}\">Pokaz wszystkie</button>"
+        )
 
     benchmark_table = ""
     if benchmark:
@@ -369,6 +458,30 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
             overflow-x: auto;
             width: 100%;
         }}
+        .table-scroll.is-collapsed tbody tr:nth-child(n+{MAX_VISIBLE_ANOMALY_ROWS + 1}) {{
+            display: none;
+        }}
+        .table-toolbar {{
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: space-between;
+            margin-top: 16px;
+        }}
+        .table-note {{
+            margin: 0;
+        }}
+        .table-toggle {{
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            color: var(--accent);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 12px;
+        }}
         .meta {{
             display: flex;
             flex-wrap: wrap;
@@ -460,14 +573,27 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         </section>
         <section class="panel">
             <h2>Wykryte anomalie 5xx</h2>
-            <div class="table-scroll">
+            <p>Baseline jest liczony filtrem Savitzky-Golay dla minutowej liczby bledow 5xx, a alarm pojawia sie, gdy odchylenie od wygladzonego trendu przekroczy ustawiony prog.</p>
+            <div class="meta">
+                <span class="pill">Metoda: {anomaly_detection.get("method", "Savitzky-Golay")}</span>
+                <span class="pill">Okno filtra: {anomaly_detection.get("window_length", 0)}</span>
+                <span class="pill">Stopien wielomianu: {anomaly_detection.get("polyorder", 0)}</span>
+                <span class="pill">Sigma: {anomaly_detection.get("sigma", summary["config"]["anomaly_sigma"])}</span>
+            </div>
+            <div class="chart">{_figure_html(anomaly_figure)}</div>
+            <div class="table-toolbar">
+                {anomaly_table_note}
+                {anomaly_table_button}
+            </div>
+            <div class="table-scroll{' is-collapsed' if anomaly_table_collapsed else ''}" id="anomaly-table">
                 <table>
                     <thead>
                         <tr>
                             <th>Znacznik czasu</th>
                             <th>Liczba bledow</th>
-                            <th>Srednia z okna</th>
-                            <th>Odchylenie standardowe</th>
+                            <th>Baseline SG</th>
+                            <th>Odchylenie</th>
+                            <th>Score</th>
                             <th>Prog alarmowy</th>
                         </tr>
                     </thead>
@@ -489,6 +615,18 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
             }};
             resizeCharts();
             window.addEventListener("resize", resizeCharts);
+            document.querySelectorAll(".table-toggle").forEach((button) => {{
+                const table = document.getElementById("anomaly-table");
+                if (!table) {{
+                    return;
+                }}
+                button.addEventListener("click", () => {{
+                    const collapsed = button.dataset.collapsed === "true";
+                    table.classList.toggle("is-collapsed", !collapsed);
+                    button.dataset.collapsed = collapsed ? "false" : "true";
+                    button.textContent = collapsed ? "Zwin liste" : "Pokaz wszystkie";
+                }});
+            }});
         }});
     </script>
 </body>
@@ -498,6 +636,55 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _expand_single_timestamp_axis(figure: go.Figure, timestamps: list[str]) -> None:
+    unique_timestamps = sorted(set(timestamps))
+    if len(unique_timestamps) != 1:
+        return
+
+    try:
+        center = datetime.fromisoformat(unique_timestamps[0])
+    except ValueError:
+        return
+
+    figure.update_xaxes(
+        range=[
+            (center - timedelta(minutes=5)).isoformat(),
+            (center + timedelta(minutes=5)).isoformat(),
+        ]
+    )
+
+
+def _sample_indexes(total_points: int, max_points: int) -> list[int]:
+    if total_points <= max_points:
+        return list(range(total_points))
+
+    step = max(1, total_points // max_points)
+    indexes = list(range(0, total_points, step))
+    last_index = total_points - 1
+    if indexes[-1] != last_index:
+        indexes.append(last_index)
+    return indexes
+
+
+def _select_by_indexes(points: list[dict], indexes: list[int]) -> list[dict]:
+    return [points[index] for index in indexes if index < len(points)]
+
+
+def _sample_plot_points(
+    points: list[dict],
+    max_points: int,
+    keep_key: str | None = None,
+) -> list[dict]:
+    if len(points) <= max_points:
+        return points
+
+    indexes = set(_sample_indexes(len(points), max_points))
+    if keep_key:
+        indexes.update(index for index, point in enumerate(points) if point.get(keep_key))
+
+    return [points[index] for index in sorted(indexes)]
 
 
 def _write_csv(path: Path, rows: list[dict], rename_key_to: str | None = None) -> None:

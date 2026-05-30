@@ -1,6 +1,6 @@
 # Rozproszony system przetwarzania logów
 
-Początkowa wersja projektu do przedmiotu "systemy rozproszone". System realizuje pipeline ETL dla wielu plików logów, uruchamia przetwarzanie równoległe przez Ray Core z kontrolowaną liczbą workerów, generuje agregacje, wykrywa proste anomalie oraz przygotowuje dashboard HTML i eksport wyników do `CSV` oraz `JSON`.
+Początkowa wersja projektu do przedmiotu "systemy rozproszone". System realizuje pipeline ETL dla wielu plików logów, uruchamia przetwarzanie równoległe przez Ray Core z kontrolowaną liczbą workerów, generuje agregacje, wykrywa anomalie 5xx filtrem Savitzky'ego-Golaya oraz przygotowuje dashboard HTML i eksport wyników do `CSV` oraz `JSON`.
 
 ## Co robi system
 
@@ -20,7 +20,7 @@ Generowane analizy:
 - top endpointy błędów
 - rozkład kodów statusu
 - trendy czasowe per minuta
-- detekcja anomalii 5xx na oknach czasowych
+- detekcja anomalii 5xx filtrem Savitzky'ego-Golaya na minutowym szeregu czasowym
 - benchmark `1 worker vs N workerów`
 
 ## Struktura projektu
@@ -80,6 +80,26 @@ python main.py \
   --workers 8
 ```
 
+## Uruchomienie UI
+
+Interfejs webowy uruchamia się lokalnie i korzysta z tego samego pipeline'u co CLI:
+
+```bash
+python ui.py
+```
+
+Domyślny adres:
+
+```text
+http://127.0.0.1:8080
+```
+
+UI ma trzy zakładki pokazujące różne poziomy uprawnień:
+
+- `Dashboard` - tylko podgląd ostatniego wygenerowanego dashboardu i pobieranie raportu
+- `Analityk` - uruchomienie analizy z podstawowymi parametrami oraz pobieranie dashboardu i raportu ZIP
+- `Admin` - parametry analityka oraz konfiguracja liczby workerów, progu anomalii i benchmarku
+
 ## Wyniki
 
 Po uruchomieniu system zapisuje do katalogu wyjściowego:
@@ -102,6 +122,8 @@ Dashboard można otworzyć w przeglądarce bez dodatkowego serwera.
 - `--workers` - liczba workerów przetwarzających logi
 - `--chunk-size` - liczba linii w jednym chunku
 - `--top-n` - ile rekordów pokazywać w agregacjach typu top
+- `--anomaly-window` - długość okna filtra Savitzky'ego-Golaya dla detekcji 5xx; jeśli wartość jest parzysta, program zaokrągla ją do najbliższej większej nieparzystej
+- `--anomaly-sigma` - mnożnik skali residuów używany do wyznaczenia progu alarmowego
 - `--benchmark` - włącza porównanie `1 worker vs N workerów`
 - `--benchmark-workers 1 2 4 8` - ręczna lista workerów do benchmarku
 - `--no-dashboard` - pomija generowanie dashboardu HTML

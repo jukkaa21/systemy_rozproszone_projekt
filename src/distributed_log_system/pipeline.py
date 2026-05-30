@@ -192,11 +192,13 @@ def build_summary(
     anomaly_window: int,
     anomaly_sigma: float,
 ) -> dict:
-    anomalies = detect_error_anomalies(
-        minute_counts=aggregate.error_5xx_minute_counts,
+    anomaly_detection = detect_error_anomalies(
+        error_minute_counts=aggregate.error_5xx_minute_counts,
+        all_minute_counts=aggregate.hourly_counts,
         window_size=anomaly_window,
         sigma=anomaly_sigma,
     )
+    anomalies = anomaly_detection["anomalies"]
 
     top_ips = _top_items(aggregate.ip_counts, top_n)
     top_endpoints = _top_items(aggregate.endpoint_counts, top_n)
@@ -249,39 +251,81 @@ def build_summary(
             "status_family_trends": status_family_trends,
         },
         "anomalies": anomalies,
+        "anomaly_detection": anomaly_detection,
     }
 
 
-def detect_error_anomalies(minute_counts: dict[str, int], window_size: int, sigma: float) -> list[dict]:
-    ordered = sorted(minute_counts.items())
-    if len(ordered) <= window_size:
-        return []
+def detect_error_anomalies(
+    error_minute_counts: dict[str, int],
+    all_minute_counts: dict[str, int],
+    window_size: int,
+    sigma: float,
+) -> dict:
+    timestamps = _build_continuous_minute_buckets(all_minute_counts)
+    values = [error_minute_counts.get(timestamp, 0) for timestamp in timestamps]
+    normalized_window = _normalize_savgol_window(
+        series_length=len(values),
+        requested_window_size=window_size,
+    )
+    polyorder = min(2, max(1, normalized_window - 2)) if normalized_window else 0
 
     anomalies: list[dict] = []
-    counts = [count for _, count in ordered]
-    timestamps = [timestamp for timestamp, _ in ordered]
-    min_threshold = 3
+    anomaly_indexes: set[int] = set()
+    min_error_count = 3
 
-    for index in range(window_size, len(ordered)):
-        history = counts[index - window_size : index]
-        mean = sum(history) / len(history)
-        variance = sum((value - mean) ** 2 for value in history) / len(history)
-        stddev = math.sqrt(variance)
-        current = counts[index]
-        threshold = max(mean + sigma * stddev, min_threshold)
+    if normalized_window:
+        baseline = [
+            max(0.0, value)
+            for value in _savitzky_golay_smooth(
+                values=values,
+                window_length=normalized_window,
+                polyorder=polyorder,
+            )
+        ]
+    else:
+        baseline = [float(value) for value in values]
 
-        if current > threshold and current > mean:
+    residuals = [value - baseline_value for value, baseline_value in zip(values, baseline)]
+    residual_scale = max(_robust_stddev(residuals), 1.0)
+    thresholds = [
+        max(baseline_value + sigma * residual_scale, float(min_error_count))
+        for baseline_value in baseline
+    ]
+
+    for index, (timestamp, current, baseline_value, residual, threshold) in enumerate(
+        zip(timestamps, values, baseline, residuals, thresholds)
+    ):
+        if current >= min_error_count and current >= threshold and residual > 0:
+            score = residual / residual_scale if residual_scale else residual
+            anomaly_indexes.add(index)
             anomalies.append(
                 {
-                    "timestamp": timestamps[index],
+                    "timestamp": timestamp,
                     "error_count": current,
-                    "baseline_mean": round(mean, 2),
-                    "baseline_stddev": round(stddev, 2),
+                    "savgol_baseline": round(baseline_value, 2),
+                    "residual": round(residual, 2),
+                    "residual_score": round(score, 2),
                     "threshold": round(threshold, 2),
                 }
             )
 
-    return anomalies
+    return {
+        "method": "Savitzky-Golay",
+        "metric": "5xx errors per minute",
+        "window_length": normalized_window,
+        "polyorder": polyorder,
+        "sigma": sigma,
+        "residual_scale": round(residual_scale, 4),
+        "min_error_count": min_error_count,
+        "anomalies": anomalies,
+        "series": _sample_anomaly_series(
+            timestamps=timestamps,
+            values=values,
+            baseline=baseline,
+            thresholds=thresholds,
+            anomaly_indexes=anomaly_indexes,
+        ),
+    }
 
 
 def run_benchmark(files: Sequence[Path], chunk_size: int, worker_counts: Sequence[int]) -> list[dict]:
@@ -338,6 +382,166 @@ def _build_trend_buckets(counter: dict[str, int]) -> list[str]:
         previous = current
 
     return sorted(buckets, key=datetime.fromisoformat)
+
+
+def _build_continuous_minute_buckets(counter: dict[str, int]) -> list[str]:
+    ordered_buckets = sorted(counter, key=datetime.fromisoformat)
+    if not ordered_buckets:
+        return []
+
+    current = datetime.fromisoformat(ordered_buckets[0])
+    end = datetime.fromisoformat(ordered_buckets[-1])
+    buckets = []
+
+    while current <= end:
+        buckets.append(current.isoformat())
+        current += timedelta(minutes=1)
+
+    return buckets
+
+
+def _normalize_savgol_window(series_length: int, requested_window_size: int) -> int:
+    if series_length < 3:
+        return 0
+
+    window_length = max(5, int(requested_window_size))
+    if window_length % 2 == 0:
+        window_length += 1
+
+    if window_length > series_length:
+        window_length = series_length if series_length % 2 else series_length - 1
+
+    return window_length if window_length >= 3 else 0
+
+
+def _savitzky_golay_smooth(values: Sequence[int], window_length: int, polyorder: int) -> list[float]:
+    coefficients = _savgol_coefficients(window_length=window_length, polyorder=polyorder)
+    half_window = window_length // 2
+    smoothed = []
+
+    for index in range(len(values)):
+        value = 0.0
+        for offset, coefficient in enumerate(coefficients):
+            source_index = index + offset - half_window
+            value += coefficient * _reflected_value(values, source_index)
+        smoothed.append(value)
+
+    return smoothed
+
+
+def _savgol_coefficients(window_length: int, polyorder: int) -> list[float]:
+    half_window = window_length // 2
+    positions = list(range(-half_window, half_window + 1))
+    matrix_size = polyorder + 1
+    normal_matrix = [
+        [
+            sum(float(position) ** (row + column) for position in positions)
+            for column in range(matrix_size)
+        ]
+        for row in range(matrix_size)
+    ]
+    target = [1.0] + [0.0] * polyorder
+    weights = _solve_linear_system(normal_matrix, target)
+
+    return [
+        sum((float(position) ** power) * weights[power] for power in range(matrix_size))
+        for position in positions
+    ]
+
+
+def _solve_linear_system(matrix: list[list[float]], target: list[float]) -> list[float]:
+    size = len(target)
+    augmented = [row[:] + [target[index]] for index, row in enumerate(matrix)]
+
+    for column in range(size):
+        pivot_row = max(range(column, size), key=lambda row: abs(augmented[row][column]))
+        if abs(augmented[pivot_row][column]) < 1e-12:
+            raise ValueError("Nie mozna wyliczyc wspolczynnikow filtra Savitzky-Golay.")
+
+        augmented[column], augmented[pivot_row] = augmented[pivot_row], augmented[column]
+        pivot = augmented[column][column]
+        augmented[column] = [value / pivot for value in augmented[column]]
+
+        for row in range(size):
+            if row == column:
+                continue
+            factor = augmented[row][column]
+            augmented[row] = [
+                value - factor * augmented[column][position]
+                for position, value in enumerate(augmented[row])
+            ]
+
+    return [row[-1] for row in augmented]
+
+
+def _reflected_value(values: Sequence[int], index: int) -> int:
+    if len(values) == 1:
+        return values[0]
+
+    last_index = len(values) - 1
+    while index < 0 or index > last_index:
+        if index < 0:
+            index = -index
+        elif index > last_index:
+            index = 2 * last_index - index
+
+    return values[index]
+
+
+def _robust_stddev(values: Sequence[float]) -> float:
+    if not values:
+        return 0.0
+
+    median = _median(values)
+    median_absolute_deviation = _median([abs(value - median) for value in values])
+    robust_scale = 1.4826 * median_absolute_deviation
+    if robust_scale > 0:
+        return robust_scale
+
+    mean = sum(values) / len(values)
+    variance = sum((value - mean) ** 2 for value in values) / len(values)
+    return math.sqrt(variance)
+
+
+def _median(values: Sequence[float]) -> float:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+
+    return (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def _sample_anomaly_series(
+    timestamps: Sequence[str],
+    values: Sequence[int],
+    baseline: Sequence[float],
+    thresholds: Sequence[float],
+    anomaly_indexes: set[int],
+    max_points: int = 1200,
+) -> list[dict]:
+    if len(timestamps) <= max_points:
+        selected_indexes = set(range(len(timestamps)))
+    else:
+        step = math.ceil(len(timestamps) / max_points)
+        selected_indexes = set(range(0, len(timestamps), step))
+        for index in anomaly_indexes:
+            selected_indexes.update(
+                nearby
+                for nearby in range(index - 2, index + 3)
+                if 0 <= nearby < len(timestamps)
+            )
+
+    return [
+        {
+            "timestamp": timestamps[index],
+            "error_count": values[index],
+            "savgol_baseline": round(baseline[index], 2),
+            "threshold": round(thresholds[index], 2),
+            "is_anomaly": index in anomaly_indexes,
+        }
+        for index in sorted(selected_indexes)
+    ]
 
 
 def _top_items(counter: dict, top_n: int) -> list[dict]:

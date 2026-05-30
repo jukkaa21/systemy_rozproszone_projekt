@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-30T21:37:41.858686Z",
+  "generated_at_utc": "2026-05-30T22:30:36.381918Z",
   "input_files": [
     "sample.log"
   ],
@@ -11,7 +11,7 @@
     "anomaly_sigma": 2.0
   },
   "metrics": {
-    "duration_seconds": 0.0211,
+    "duration_seconds": 0.021,
     "processed_lines": 6,
     "valid_lines": 5,
     "invalid_lines": 1,
@@ -227,5 +227,444 @@
       ]
     }
   },
-  "anomalies": []
+  "anomalies": [],
+  "anomaly_detection": {
+    "method": "Savitzky-Golay",
+    "metric": "5xx errors per minute",
+    "window_length": 5,
+    "polyorder": 2,
+    "sigma": 2.0,
+    "residual_scale": 1.0,
+    "min_error_count": 3,
+    "anomalies": [],
+    "series": [
+      {
+        "timestamp": "2020-01-01T10:00:00+00:00",
+        "error_count": 1,
+        "savgol_baseline": 1.17,
+        "threshold": 3.17,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:01:00+00:00",
+        "error_count": 1,
+        "savgol_baseline": 0.74,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:02:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.26,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:03:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:04:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:05:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:06:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:07:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:08:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:09:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:10:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:11:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:12:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:13:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:14:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:15:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:16:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:17:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:18:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:19:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:20:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:21:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:22:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:23:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:24:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:25:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:26:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:27:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:28:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:29:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:30:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:31:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:32:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:33:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:34:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:35:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:36:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:37:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:38:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:39:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:40:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:41:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:42:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:43:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:44:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:45:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:46:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:47:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:48:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:49:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:50:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:51:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:52:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:53:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:54:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:55:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:56:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:57:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:58:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T10:59:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      },
+      {
+        "timestamp": "2020-01-01T11:00:00+00:00",
+        "error_count": 0,
+        "savgol_baseline": 0.0,
+        "threshold": 3.0,
+        "is_anomaly": false
+      }
+    ]
+  }
 }

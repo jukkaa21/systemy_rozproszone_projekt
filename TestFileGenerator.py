@@ -37,7 +37,7 @@ f = open("logfiles.log","w")
 for _ in range(1,1000001):
     f.write('%s - - [%s] "%s %s HTTP/1.0" %s %s "%s" "%s" %s\n' % 
         (fak.ipv4(),
-        random_date("01/Jan/2018:12:00:00 +0530","01/Jan/2020:12:00:00 +0530",10), 
+        random_date("01/Jan/2018:12:00:00 +0530","01/Jan/2020:12:00:00 +0530",random.random()), 
          choice(dictionary['request']),
          choice(dictionary['endpoint']),
          choice(dictionary['statuscode']),    
