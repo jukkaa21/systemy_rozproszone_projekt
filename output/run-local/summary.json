@@ -1,188 +1,228 @@
 {
-  "generated_at_utc": "2026-05-05T10:05:52.238853Z",
+  "generated_at_utc": "2026-05-30T21:37:41.858686Z",
   "input_files": [
-    "logfiles.log"
+    "sample.log"
   ],
   "config": {
-    "workers": 4,
-    "chunk_size": 10000,
+    "workers": 2,
+    "chunk_size": 2,
     "top_n": 10,
     "anomaly_window": 5,
     "anomaly_sigma": 2.0
   },
   "metrics": {
-    "duration_seconds": 25.2349,
-    "processed_lines": 1000000,
-    "valid_lines": 1000000,
-    "invalid_lines": 0,
-    "valid_ratio": 1.0,
-    "average_response_time_ms": 2500.74,
-    "average_response_bytes": 4999.49
+    "duration_seconds": 0.0211,
+    "processed_lines": 6,
+    "valid_lines": 5,
+    "invalid_lines": 1,
+    "valid_ratio": 0.8333,
+    "average_response_time_ms": 224.0,
+    "average_response_bytes": 940.0
   },
   "aggregations": {
     "top_ips": [
       {
-        "key": "10.184.249.94",
+        "key": "10.0.0.1",
         "count": 2
       },
       {
-        "key": "100.43.81.184",
+        "key": "10.0.0.2",
         "count": 2
       },
       {
-        "key": "101.237.206.215",
-        "count": 2
-      },
-      {
-        "key": "103.248.5.54",
-        "count": 2
-      },
-      {
-        "key": "103.5.232.225",
-        "count": 2
-      },
-      {
-        "key": "104.147.232.158",
-        "count": 2
-      },
-      {
-        "key": "11.38.103.186",
-        "count": 2
-      },
-      {
-        "key": "110.191.10.197",
-        "count": 2
-      },
-      {
-        "key": "110.41.7.46",
-        "count": 2
-      },
-      {
-        "key": "113.177.247.50",
-        "count": 2
+        "key": "10.0.0.3",
+        "count": 1
       }
     ],
     "top_endpoints": [
       {
-        "key": "/usr/login",
-        "count": 200545
-      },
-      {
         "key": "/usr/register",
-        "count": 200321
+        "count": 2
       },
       {
         "key": "/usr/admin",
-        "count": 200064
-      },
-      {
-        "key": "/usr",
-        "count": 199925
+        "count": 1
       },
       {
         "key": "/usr/admin/developer",
-        "count": 199145
+        "count": 1
+      },
+      {
+        "key": "/usr/login",
+        "count": 1
       }
     ],
     "top_error_endpoints": [
       {
-        "key": "/usr/login",
-        "count": 114403
-      },
-      {
         "key": "/usr/register",
-        "count": 114246
+        "count": 2
       },
       {
         "key": "/usr/admin",
-        "count": 114216
-      },
-      {
-        "key": "/usr",
-        "count": 114165
-      },
-      {
-        "key": "/usr/admin/developer",
-        "count": 113805
+        "count": 1
       }
     ],
     "status_codes": [
       {
-        "key": "502",
-        "count": 143675
-      },
-      {
-        "key": "304",
-        "count": 143370
-      },
-      {
         "key": "200",
-        "count": 142929
-      },
-      {
-        "key": "303",
-        "count": 142866
-      },
-      {
-        "key": "403",
-        "count": 142528
+        "count": 2
       },
       {
         "key": "404",
-        "count": 142407
+        "count": 1
       },
       {
         "key": "500",
-        "count": 142225
+        "count": 1
+      },
+      {
+        "key": "502",
+        "count": 1
       }
     ],
     "methods": [
       {
         "key": "GET",
-        "count": 250211
-      },
-      {
-        "key": "DELETE",
-        "count": 250127
+        "count": 2
       },
       {
         "key": "POST",
-        "count": 249892
+        "count": 2
       },
       {
-        "key": "PUT",
-        "count": 249770
+        "key": "DELETE",
+        "count": 1
       }
     ],
     "hourly_trends": [
       {
-        "hour": "2037-12-27T12:00:00+00:00",
-        "requests": 1000000
+        "hour": "2020-01-01T10:00:00+00:00",
+        "requests": 2
+      },
+      {
+        "hour": "2020-01-01T10:01:00+00:00",
+        "requests": 1
+      },
+      {
+        "hour": "2020-01-01T10:02:00+00:00",
+        "requests": 1
+      },
+      {
+        "hour": "2020-01-01T10:03:00+00:00",
+        "requests": 0
+      },
+      {
+        "hour": "2020-01-01T10:59:00+00:00",
+        "requests": 0
+      },
+      {
+        "hour": "2020-01-01T11:00:00+00:00",
+        "requests": 1
       }
     ],
     "status_family_trends": {
       "2xx": [
         {
-          "hour": "2037-12-27T12:00:00+00:00",
-          "requests": 142929
+          "hour": "2020-01-01T10:00:00+00:00",
+          "requests": 1
+        },
+        {
+          "hour": "2020-01-01T10:01:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:02:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:03:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:59:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T11:00:00+00:00",
+          "requests": 1
         }
       ],
       "3xx": [
         {
-          "hour": "2037-12-27T12:00:00+00:00",
-          "requests": 286236
+          "hour": "2020-01-01T10:00:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:01:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:02:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:03:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:59:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T11:00:00+00:00",
+          "requests": 0
         }
       ],
       "4xx": [
         {
-          "hour": "2037-12-27T12:00:00+00:00",
-          "requests": 284935
+          "hour": "2020-01-01T10:00:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:01:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:02:00+00:00",
+          "requests": 1
+        },
+        {
+          "hour": "2020-01-01T10:03:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:59:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T11:00:00+00:00",
+          "requests": 0
         }
       ],
       "5xx": [
         {
-          "hour": "2037-12-27T12:00:00+00:00",
-          "requests": 285900
+          "hour": "2020-01-01T10:00:00+00:00",
+          "requests": 1
+        },
+        {
+          "hour": "2020-01-01T10:01:00+00:00",
+          "requests": 1
+        },
+        {
+          "hour": "2020-01-01T10:02:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:03:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T10:59:00+00:00",
+          "requests": 0
+        },
+        {
+          "hour": "2020-01-01T11:00:00+00:00",
+          "requests": 0
         }
       ]
     }

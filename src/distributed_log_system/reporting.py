@@ -8,6 +8,9 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 
+PLOT_CONFIG = {"responsive": True, "displaylogo": False}
+
+
 def export_results(
     output_dir: Path,
     summary: dict,
@@ -43,56 +46,66 @@ def export_results(
         (output_dir / "dashboard.html").write_text(dashboard_html, encoding="utf-8")
 
 
+def _build_horizontal_bar(items: list[dict], title: str, axis_title: str, color: str) -> go.Figure:
+    ordered_items = list(reversed(items))
+    figure = go.Figure(
+        data=[
+            go.Bar(
+                x=[item["count"] for item in ordered_items],
+                y=[item["key"] for item in ordered_items],
+                orientation="h",
+                marker_color=color,
+                hovertemplate="%{y}: %{x}<extra></extra>",
+            )
+        ]
+    )
+    figure.update_layout(
+        title=title,
+        xaxis_title=axis_title,
+        yaxis_title="",
+        height=max(360, 120 + len(ordered_items) * 34),
+        margin={"l": 178, "r": 24, "t": 56, "b": 56},
+        bargap=0.24,
+    )
+    figure.update_xaxes(automargin=True, rangemode="tozero")
+    figure.update_yaxes(automargin=True, ticklabelstandoff=12)
+    return figure
+
+
+def _figure_html(figure: go.Figure, include_plotlyjs: bool = False) -> str:
+    return pio.to_html(
+        figure,
+        include_plotlyjs=include_plotlyjs,
+        full_html=False,
+        config=PLOT_CONFIG,
+        default_width="100%",
+        default_height="100%",
+    )
+
+
 def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
     aggregations = summary["aggregations"]
     metrics = summary["metrics"]
 
-    top_ip_figure = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["key"] for item in aggregations["top_ips"]],
-                y=[item["count"] for item in aggregations["top_ips"]],
-                marker_color="#1f77b4",
-            )
-        ]
-    )
-    top_ip_figure.update_layout(
+    top_ip_figure = _build_horizontal_bar(
+        items=aggregations["top_ips"],
         title="Top IP",
-        xaxis_title="IP",
-        yaxis_title="Liczba zapytan",
-        height=420,
+        axis_title="Liczba zapytan",
+        color="#1f77b4",
     )
 
-    endpoint_figure = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["key"] for item in aggregations["top_endpoints"]],
-                y=[item["count"] for item in aggregations["top_endpoints"]],
-                marker_color="#ff7f0e",
-            )
-        ]
-    )
-    endpoint_figure.update_layout(
+    endpoint_figure = _build_horizontal_bar(
+        items=aggregations["top_endpoints"],
         title="Top endpointy",
-        xaxis_title="Endpoint",
-        yaxis_title="Liczba zapytan",
-        height=420,
+        axis_title="Liczba zapytan",
+        color="#ff7f0e",
     )
 
-    error_endpoint_figure = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["key"] for item in aggregations["top_error_endpoints"]],
-                y=[item["count"] for item in aggregations["top_error_endpoints"]],
-                marker_color="#d62728",
-            )
-        ]
-    )
-    error_endpoint_figure.update_layout(
+    error_endpoint_figure = _build_horizontal_bar(
+        items=aggregations["top_error_endpoints"],
         title="Top endpointy bledow",
-        xaxis_title="Endpoint",
-        yaxis_title="Liczba blednych odpowiedzi",
-        height=420,
+        axis_title="Liczba blednych odpowiedzi",
+        color="#d62728",
     )
 
     status_figure = go.Figure(
@@ -104,7 +117,12 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
             )
         ]
     )
-    status_figure.update_layout(title="Rozklad kodow statusu", height=420)
+    status_figure.update_layout(
+        title="Rozklad kodow statusu",
+        height=420,
+        margin={"l": 24, "r": 24, "t": 56, "b": 64},
+        legend={"orientation": "h", "x": 0.5, "xanchor": "center", "y": -0.08},
+    )
 
     trend_figure = go.Figure()
     trend_figure.add_trace(
@@ -113,7 +131,7 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
             y=[point["requests"] for point in aggregations["hourly_trends"]],
             mode="lines+markers",
             name="Wszystkie",
-            line={"color": "#2ca02c"},
+            line={"color": "#2ca02c", "shape": "hv"},
             visible=True,
         )
     )
@@ -125,15 +143,17 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
                 y=[point["requests"] for point in family_points],
                 mode="lines",
                 name=family,
-                line={"color": color},
+                line={"color": color, "shape": "hv"},
                 visible=True,
             )
         )
     trend_figure.update_layout(
-        title="Trendy godzinowe z filtrowaniem klas statusu",
-        xaxis_title="Godzina (UTC)",
+        title="Trendy minutowe z filtrowaniem klas statusu",
+        xaxis_title="Czas (UTC)",
         yaxis_title="Liczba zapytan",
         height=480,
+        margin={"l": 72, "r": 32, "t": 86, "b": 72},
+        legend={"orientation": "h", "x": 0.0, "xanchor": "left", "y": 1.03, "yanchor": "bottom"},
         updatemenus=[
             {
                 "buttons": [
@@ -161,22 +181,26 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
                 "direction": "down",
                 "x": 1.0,
                 "xanchor": "right",
-                "y": 1.16,
+                "y": 1.14,
                 "yanchor": "top",
             }
         ],
     )
+    trend_figure.update_yaxes(tickformat=",d")
 
     benchmark_figure = None
     if benchmark:
+        benchmark_y_max = max((item["duration_seconds"] for item in benchmark), default=0)
         benchmark_figure = go.Figure(
             data=[
                 go.Bar(
                     x=[item["workers"] for item in benchmark],
                     y=[item["duration_seconds"] for item in benchmark],
+                    width=0.35,
                     marker_color="#9467bd",
                     text=[f'{item["speedup_vs_first_run"]:.2f}x' for item in benchmark],
                     textposition="outside",
+                    cliponaxis=False,
                 )
             ]
         )
@@ -184,7 +208,17 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
             title="Benchmark 1 vs N workerow",
             xaxis_title="Liczba workerow",
             yaxis_title="Czas [s]",
-            height=420,
+            height=500,
+            margin={"l": 72, "r": 32, "t": 92, "b": 64},
+            bargap=0.55,
+        )
+        benchmark_figure.update_xaxes(
+            tickmode="array",
+            tickvals=[item["workers"] for item in benchmark],
+            ticktext=[str(item["workers"]) for item in benchmark],
+        )
+        benchmark_figure.update_yaxes(
+            range=[0, benchmark_y_max * 1.25 if benchmark_y_max else 1],
         )
 
     anomaly_rows = "".join(
@@ -222,18 +256,20 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         benchmark_table = f"""
         <section class="panel">
             <h2>Benchmark</h2>
-            <div class="chart">{pio.to_html(benchmark_figure, include_plotlyjs=False, full_html=False)}</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Workery</th>
-                        <th>Czas [s]</th>
-                        <th>Przetworzone linie</th>
-                        <th>Speedup</th>
-                    </tr>
-                </thead>
-                <tbody>{benchmark_rows}</tbody>
-            </table>
+            <div class="chart">{_figure_html(benchmark_figure)}</div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Workery</th>
+                            <th>Czas [s]</th>
+                            <th>Przetworzone linie</th>
+                            <th>Speedup</th>
+                        </tr>
+                    </thead>
+                    <tbody>{benchmark_rows}</tbody>
+                </table>
+            </div>
         </section>
         """
 
@@ -259,9 +295,7 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         body {{
             margin: 0;
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(11, 110, 253, 0.12), transparent 30%),
-                linear-gradient(180deg, #f7f9fc 0%, #edf2f9 100%);
+            background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
             color: var(--ink);
         }}
         main {{
@@ -277,27 +311,29 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         }}
         .cards {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
             gap: 16px;
             margin: 24px 0;
         }}
         .card, .panel {{
             background: var(--panel);
             border: 1px solid var(--border);
-            border-radius: 18px;
-            box-shadow: 0 18px 60px rgba(16, 32, 58, 0.08);
+            border-radius: 8px;
+            box-shadow: 0 14px 38px rgba(16, 32, 58, 0.07);
+            min-width: 0;
         }}
         .card {{
             padding: 18px;
         }}
         .card strong {{
             display: block;
-            font-size: 1.75rem;
+            font-size: 1.6rem;
             margin-top: 8px;
+            overflow-wrap: anywhere;
         }}
         .grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 20px;
         }}
         .panel {{
@@ -306,6 +342,14 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         }}
         .chart {{
             min-height: 320px;
+            min-width: 0;
+            overflow: hidden;
+            width: 100%;
+        }}
+        .chart .js-plotly-plot,
+        .chart .plot-container,
+        .chart .svg-container {{
+            max-width: 100%;
         }}
         table {{
             width: 100%;
@@ -321,6 +365,10 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         th {{
             color: var(--muted);
         }}
+        .table-scroll {{
+            overflow-x: auto;
+            width: 100%;
+        }}
         .meta {{
             display: flex;
             flex-wrap: wrap;
@@ -332,6 +380,22 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
             border-radius: 999px;
             background: rgba(11, 110, 253, 0.08);
             color: var(--accent);
+            max-width: 100%;
+            overflow-wrap: anywhere;
+        }}
+        @media (max-width: 860px) {{
+            main {{
+                padding: 24px 14px 36px;
+            }}
+            .grid {{
+                grid-template-columns: 1fr;
+            }}
+            .panel {{
+                padding: 16px;
+            }}
+            h1 {{
+                font-size: 1.75rem;
+            }}
         }}
     </style>
 </head>
@@ -374,43 +438,59 @@ def build_dashboard_html(summary: dict, benchmark: list[dict]) -> str:
         <section class="grid">
             <div class="panel">
                 <h2>Top IP</h2>
-                <div class="chart">{pio.to_html(top_ip_figure, include_plotlyjs=True, full_html=False)}</div>
+                <div class="chart">{_figure_html(top_ip_figure, include_plotlyjs=True)}</div>
             </div>
             <div class="panel">
                 <h2>Top endpointy</h2>
-                <div class="chart">{pio.to_html(endpoint_figure, include_plotlyjs=False, full_html=False)}</div>
+                <div class="chart">{_figure_html(endpoint_figure)}</div>
             </div>
             <div class="panel">
                 <h2>Top błędy</h2>
-                <div class="chart">{pio.to_html(error_endpoint_figure, include_plotlyjs=False, full_html=False)}</div>
+                <div class="chart">{_figure_html(error_endpoint_figure)}</div>
             </div>
             <div class="panel">
                 <h2>Status codes</h2>
-                <div class="chart">{pio.to_html(status_figure, include_plotlyjs=False, full_html=False)}</div>
+                <div class="chart">{_figure_html(status_figure)}</div>
             </div>
         </section>
         <section class="panel">
             <h2>Trendy czasowe</h2>
             <p>Menu przy wykresie pozwala przefiltrowac widok dla wybranej klasy odpowiedzi HTTP.</p>
-            <div class="chart">{pio.to_html(trend_figure, include_plotlyjs=False, full_html=False)}</div>
+            <div class="chart">{_figure_html(trend_figure)}</div>
         </section>
         <section class="panel">
             <h2>Wykryte anomalie 5xx</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Znacznik czasu</th>
-                        <th>Liczba bledow</th>
-                        <th>Srednia z okna</th>
-                        <th>Odchylenie standardowe</th>
-                        <th>Prog alarmowy</th>
-                    </tr>
-                </thead>
-                <tbody>{anomaly_rows}</tbody>
-            </table>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Znacznik czasu</th>
+                            <th>Liczba bledow</th>
+                            <th>Srednia z okna</th>
+                            <th>Odchylenie standardowe</th>
+                            <th>Prog alarmowy</th>
+                        </tr>
+                    </thead>
+                    <tbody>{anomaly_rows}</tbody>
+                </table>
+            </div>
         </section>
         {benchmark_table}
     </main>
+    <script>
+        window.addEventListener("load", () => {{
+            if (!window.Plotly) {{
+                return;
+            }}
+            const resizeCharts = () => {{
+                document.querySelectorAll(".js-plotly-plot").forEach((chart) => {{
+                    window.Plotly.Plots.resize(chart);
+                }});
+            }};
+            resizeCharts();
+            window.addEventListener("resize", resizeCharts);
+        }});
+    </script>
 </body>
 </html>
 """

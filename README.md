@@ -1,6 +1,6 @@
 # Rozproszony system przetwarzania logów
 
-Początkowa wersja projektu do przedmiotu "systemy rozproszone". System realizuje pipeline ETL dla wielu plików logów, uruchamia przetwarzanie równoległe z kontrolowaną liczbą workerów, generuje agregacje, wykrywa proste anomalie oraz przygotowuje dashboard HTML i eksport wyników do `CSV` oraz `JSON`.
+Początkowa wersja projektu do przedmiotu "systemy rozproszone". System realizuje pipeline ETL dla wielu plików logów, uruchamia przetwarzanie równoległe przez Ray Core z kontrolowaną liczbą workerów, generuje agregacje, wykrywa proste anomalie oraz przygotowuje dashboard HTML i eksport wyników do `CSV` oraz `JSON`.
 
 ## Co robi system
 
@@ -10,7 +10,7 @@ Pipeline składa się z etapów:
 2. `Parsowanie` każdej linii do rekordu z polami.
 3. `Walidacja` wpisów i odrzucanie błędnych rekordów.
 4. `Normalizacja` metod HTTP, statusów i znaczników czasu do `UTC`.
-5. `Map` - każdy worker przetwarza własny chunk logów.
+5. `Map` - Ray uruchamia taski, w których każdy worker przetwarza własny chunk logów.
 6. `Reduce` - wyniki częściowe są scalane do wspólnego raportu.
 
 Generowane analizy:
@@ -19,7 +19,7 @@ Generowane analizy:
 - top endpointy
 - top endpointy błędów
 - rozkład kodów statusu
-- trendy czasowe per godzina
+- trendy czasowe per minuta
 - detekcja anomalii 5xx na oknach czasowych
 - benchmark `1 worker vs N workerów`
 
@@ -38,6 +38,7 @@ Moduły ETL, map/reduce, raportowania i dashboardu.
 
 - `plotly` - generowanie dashboardu HTML
 - `Faker` - generator danych testowych
+- `ray` - równoległe uruchamianie tasków przetwarzających chunki logów
 
 ## Uruchamianie lokalne
 
@@ -104,6 +105,8 @@ Dashboard można otworzyć w przeglądarce bez dodatkowego serwera.
 - `--benchmark` - włącza porównanie `1 worker vs N workerów`
 - `--benchmark-workers 1 2 4 8` - ręczna lista workerów do benchmarku
 - `--no-dashboard` - pomija generowanie dashboardu HTML
+
+Przy lokalnym uruchomieniu system sam startuje kontekst Raya. Parametr `--workers` ogranicza liczbę równoległych tasków przetwarzających chunki.
 
 ## Uruchamianie w Dockerze
 

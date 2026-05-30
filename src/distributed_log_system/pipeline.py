@@ -1,17 +1,32 @@
 from __future__ import annotations
 
-import csv
 import glob
+import logging
 import math
-from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Sequence
 
+import ray
+
 from .models import PartialAggregate
 from .parser import parse_log_line
 from .reporting import export_results
+
+
+def _ensure_ray_initialized(num_cpus: int) -> bool:
+    if ray.is_initialized():
+        return False
+
+    ray.init(
+        num_cpus=max(1, num_cpus),
+        include_dashboard=False,
+        ignore_reinit_error=True,
+        logging_level=logging.ERROR,
+        log_to_driver=False,
+    )
+    return True
 
 
 def resolve_input_files(input_paths: Sequence[str]) -> list[Path]:
@@ -72,12 +87,12 @@ def process_chunk(lines: list[str]) -> PartialAggregate:
         if record.status >= 400:
             aggregate.error_endpoint_counts[record.endpoint] += 1
 
-        hour_bucket = record.timestamp_utc.replace(minute=0, second=0, microsecond=0).isoformat()
-        aggregate.hourly_counts[hour_bucket] += 1
+        time_bucket = record.timestamp_utc.replace(second=0, microsecond=0).isoformat()
+        aggregate.hourly_counts[time_bucket] += 1
 
         family = f"{record.status // 100}xx"
         if family in aggregate.status_family_hourly_counts:
-            aggregate.status_family_hourly_counts[family][hour_bucket] += 1
+            aggregate.status_family_hourly_counts[family][time_bucket] += 1
 
         if 500 <= record.status <= 599:
             minute_bucket = record.timestamp_utc.replace(second=0, microsecond=0).isoformat()
@@ -104,54 +119,67 @@ def execute_pipeline(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    aggregate, duration_seconds = run_map_reduce(input_files, workers=workers, chunk_size=chunk_size)
+    worker_candidates = [workers, *(benchmark_workers or [])]
+    max_ray_cpus = max(max(1, int(count)) for count in worker_candidates)
+    started_ray = _ensure_ray_initialized(num_cpus=max_ray_cpus)
 
-    summary = build_summary(
-        aggregate=aggregate,
-        input_files=input_files,
-        workers=workers,
-        chunk_size=chunk_size,
-        duration_seconds=duration_seconds,
-        top_n=top_n,
-        anomaly_window=anomaly_window,
-        anomaly_sigma=anomaly_sigma,
-    )
+    try:
+        aggregate, duration_seconds = run_map_reduce(input_files, workers=workers, chunk_size=chunk_size)
 
-    benchmark = []
-    if benchmark_workers:
-        benchmark = run_benchmark(input_files, chunk_size=chunk_size, worker_counts=benchmark_workers)
+        summary = build_summary(
+            aggregate=aggregate,
+            input_files=input_files,
+            workers=workers,
+            chunk_size=chunk_size,
+            duration_seconds=duration_seconds,
+            top_n=top_n,
+            anomaly_window=anomaly_window,
+            anomaly_sigma=anomaly_sigma,
+        )
 
-    export_results(
-        output_dir=output_path,
-        summary=summary,
-        benchmark=benchmark,
-        export_dashboard=export_dashboard,
-    )
+        benchmark = []
+        if benchmark_workers:
+            benchmark = run_benchmark(input_files, chunk_size=chunk_size, worker_counts=benchmark_workers)
 
-    summary["benchmark"] = benchmark
-    return summary
+        export_results(
+            output_dir=output_path,
+            summary=summary,
+            benchmark=benchmark,
+            export_dashboard=export_dashboard,
+        )
+
+        summary["benchmark"] = benchmark
+        return summary
+    finally:
+        if started_ray:
+            ray.shutdown()
 
 
 def run_map_reduce(files: Sequence[Path], workers: int, chunk_size: int) -> tuple[PartialAggregate, float]:
-    max_workers = max(1, workers)
+    max_workers = max(1, int(workers))
     aggregate = PartialAggregate()
     start = perf_counter()
-    pending = set()
+    started_ray = _ensure_ray_initialized(num_cpus=max_workers)
+    process_chunk_remote = ray.remote(process_chunk).options(num_cpus=1)
+    pending = []
 
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+    try:
         for chunk in iter_log_chunks(files, chunk_size=chunk_size):
-            pending.add(executor.submit(process_chunk, chunk))
-            if len(pending) >= max_workers * 3:
-                done, pending = wait(pending, return_when=FIRST_COMPLETED)
-                for future in done:
-                    aggregate.merge(future.result())
+            pending.append(process_chunk_remote.remote(chunk))
+            if len(pending) >= max_workers:
+                ready, pending = ray.wait(pending, num_returns=1)
+                for object_ref in ready:
+                    aggregate.merge(ray.get(object_ref))
 
         while pending:
-            done, pending = wait(pending, return_when=FIRST_COMPLETED)
-            for future in done:
-                aggregate.merge(future.result())
+            ready, pending = ray.wait(pending, num_returns=1)
+            for object_ref in ready:
+                aggregate.merge(ray.get(object_ref))
 
-    return aggregate, perf_counter() - start
+        return aggregate, perf_counter() - start
+    finally:
+        if started_ray:
+            ray.shutdown()
 
 
 def build_summary(
@@ -175,14 +203,15 @@ def build_summary(
     top_error_endpoints = _top_items(aggregate.error_endpoint_counts, top_n)
     status_codes = _top_items(aggregate.status_counts, top_n=1000)
     methods = _top_items(aggregate.method_counts, top_n=1000)
+    time_buckets = _build_trend_buckets(aggregate.hourly_counts)
     hourly_trends = [
-        {"hour": hour, "requests": count}
-        for hour, count in sorted(aggregate.hourly_counts.items())
+        {"hour": time_bucket, "requests": aggregate.hourly_counts.get(time_bucket, 0)}
+        for time_bucket in time_buckets
     ]
     status_family_trends = {
         family: [
-            {"hour": hour, "requests": count}
-            for hour, count in sorted(counts.items())
+            {"hour": time_bucket, "requests": counts.get(time_bucket, 0)}
+            for time_bucket in time_buckets
         ]
         for family, counts in aggregate.status_family_hourly_counts.items()
     }
@@ -287,6 +316,28 @@ def run_benchmark(files: Sequence[Path], chunk_size: int, worker_counts: Sequenc
         )
 
     return results
+
+
+def _build_trend_buckets(counter: dict[str, int]) -> list[str]:
+    ordered_buckets = sorted(counter)
+    if len(ordered_buckets) <= 1:
+        return ordered_buckets
+
+    buckets = set(ordered_buckets)
+    previous = datetime.fromisoformat(ordered_buckets[0])
+
+    for bucket in ordered_buckets[1:]:
+        current = datetime.fromisoformat(bucket)
+        first_missing = previous + timedelta(minutes=1)
+
+        if first_missing < current:
+            last_missing = current - timedelta(minutes=1)
+            buckets.add(first_missing.isoformat())
+            buckets.add(last_missing.isoformat())
+
+        previous = current
+
+    return sorted(buckets, key=datetime.fromisoformat)
 
 
 def _top_items(counter: dict, top_n: int) -> list[dict]:
